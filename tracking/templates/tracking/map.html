@@ -1,0 +1,147 @@
+{% comment %} <!-- templates/tracking/map.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-Time Device Tracking</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <style>
+        #map { height: 90vh; width: 100%; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align: center;">Real-Time Device Tracking</h2>
+    <div id="map" style="height: 600px;"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <script>
+        const map = L.map('map').setView([12.9716, 77.5946], 13);  // Default view (e.g., Bangalore)
+      
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+      
+        const markers = {};
+      
+        const ws = new WebSocket('ws://' + window.location.host + '/ws/track/');
+      
+        ws.onmessage = function(event) {
+          const data = JSON.parse(event.data);
+          const { device_id, lat, lng } = data;
+      
+          if (markers[device_id]) {
+            markers[device_id].setLatLng([lat, lng]);
+          } else {
+            markers[device_id] = L.marker([lat, lng]).addTo(map)
+              .bindPopup(`Device: ${device_id}`);
+          }
+        };
+      </script>
+      
+</body>
+</html> {% endcomment %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Device Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 500px; }
+  </style>
+</head>
+<body>
+  <h1>Real-Time Device Tracking</h1>
+
+  <h3>Add Device</h3>
+<form id="deviceForm">
+  <input type="text" id="device_id" placeholder="Device ID" required />
+  <input type="number" id="latitude" step="any" placeholder="Latitude" required />
+  <input type="number" id="longitude" step="any" placeholder="Longitude" required />
+  <button type="submit">Send Location</button>
+</form>
+
+
+  <div id="map"></div>
+   
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Create the map
+    var map = L.map('map').setView([28.6139, 77.2090], 12); // Default to center of India (for example)
+
+    // Set up the tile layer (you can use other providers too)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // WebSocket connection to receive updates
+    var ws = new WebSocket("ws://localhost:8000/ws/track/");
+
+    ws.onmessage = function(event) {
+      var data = JSON.parse(event.data);
+
+      // Update the marker for the device
+      var lat = data.latitude;
+      var lon = data.longitude;
+      var deviceId = data.device_id;
+
+      // Check if the device marker already exists
+      if (window.deviceMarkers && window.deviceMarkers[deviceId]) {
+        // If marker exists, update its position
+        window.deviceMarkers[deviceId].setLatLng([lat, lon]);
+      } else {
+        // Create a new marker if it's a new device
+        var marker = L.marker([lat, lon]).addTo(map);
+        marker.bindPopup(deviceId).openPopup();
+
+        // Store the marker for future updates
+        if (!window.deviceMarkers) {
+          window.deviceMarkers = {};
+        }
+        window.deviceMarkers[deviceId] = marker;
+      }
+    };
+
+    document.getElementById("deviceForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const device_id = document.getElementById("device_id").value;
+      const latitude = parseFloat(document.getElementById("latitude").value);
+      const longitude = parseFloat(document.getElementById("longitude").value);
+    
+      const message = {
+        device_id: device_id,
+        latitude: latitude,
+        longitude: longitude
+      };
+    
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+      } else {
+        alert("WebSocket not connected.");
+      }
+    });
+    
+
+    // Handle WebSocket connection error
+    ws.onerror = function(error) {
+      console.log("WebSocket error: " + error);
+    };
+
+    ws.onopen = function() {
+      console.log("WebSocket connection established.");
+    };
+
+    ws.onclose = function() {
+      console.log("WebSocket connection closed.");
+    };
+  </script>
+
+</body>
+</html>
